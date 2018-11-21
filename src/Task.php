@@ -10,7 +10,7 @@ if (\substr(\PHP_OS, 0, 3) == 'WIN') {
 /**
  * Class Task
  */
-class Task extends Object
+class Task extends Objectt
 {
     /**
      * @var int

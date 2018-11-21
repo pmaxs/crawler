@@ -2,9 +2,9 @@
 namespace Pmaxs\Crawler;
 
 /**
- * Class Object
+ * Class Objectt
  */
-abstract class Object
+abstract class Objectt
 {
     /**
      * @var array

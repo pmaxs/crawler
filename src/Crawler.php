@@ -4,7 +4,7 @@ namespace Pmaxs\Crawler;
 /**
  * Class Crawler
  */
-class Crawler extends Object implements CrawlerInterface
+class Crawler extends Objectt implements CrawlerInterface
 {
     /**
      * @var int

@@ -4,7 +4,7 @@ namespace Pmaxs\Crawler;
 /**
  * Class Response
  */
-class Response extends Object
+class Response extends Objectt
 {
     /**
      * @var string
