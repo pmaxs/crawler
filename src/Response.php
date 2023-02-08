@@ -92,7 +92,7 @@ class Response extends Objectt
      * @param string $url
      * @param array $options
      */
-    public function __construct($url, array $options = array())
+    public function __construct($url, array $options = [])
     {
         parent::__construct($options);
 

@@ -41,10 +41,10 @@ class Request extends Objectt
      * - proxy
      * - header_only
      */
-    public function __construct($url, $method = 'GET', $post = null, $headers = null, array $options = array())
+    public function __construct($url, $method = 'GET', $post = null, $headers = null, array $options = [])
     {
         $this->url = $url;
-        $this->method = \strtoupper($method);
+        $this->method = strtoupper($method);
         $this->post = $post;
         $this->headers = $headers;
 

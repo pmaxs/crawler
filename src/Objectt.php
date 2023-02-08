@@ -16,7 +16,7 @@ abstract class Objectt
      *
      * @param array $options
      */
-    public function __construct(array $options = array())
+    public function __construct(array $options = [])
     {
         $this->options = $options;
     }
@@ -29,7 +29,9 @@ abstract class Objectt
      */
     public function getOption($name)
     {
-        if (isset($this->options[$name])) return $this->options[$name];
+        if (isset($this->options[$name])) {
+            return $this->options[$name];
+        }
 
         return null;
     }
@@ -64,7 +66,7 @@ abstract class Objectt
      * @param array $options options
      * @return $this
      */
-    public function setOptions(array $options = array())
+    public function setOptions(array $options = [])
     {
         $this->options = $options;
 
@@ -78,8 +80,8 @@ abstract class Objectt
      */
     public static function getTime()
     {
-        $mtime = \microtime();
-        $mtime = \explode(' ', $mtime);
+        $mtime = microtime();
+        $mtime = explode(' ', $mtime);
         return ((float)$mtime[1] + (float)$mtime[0]);
     }
 }

@@ -1,10 +1,10 @@
 <?php
 namespace Pmaxs\Crawler;
 
-if (\substr(\PHP_OS, 0, 3) == 'WIN') {
-    \define('INPROGRESS', 10035);
+if (substr(\PHP_OS, 0, 3) == 'WIN') {
+    define('INPROGRESS', 10035);
 } else {
-    \define('INPROGRESS', 115);
+    define('INPROGRESS', 115);
 }
 
 /**
@@ -96,7 +96,7 @@ class Task extends Objectt
      * @param callable $callback
      * @param array $options
      */
-    public function __construct($id, Request $request, Response $response, $callback, array $options = array())
+    public function __construct($id, Request $request, Response $response, $callback, array $options = [])
     {
         parent::__construct($options);
 
@@ -111,8 +111,12 @@ class Task extends Objectt
      */
     public function __destruct()
     {
-        if ($this->status == self::STATUS_NEW) $this->error('Desctruct new');
-        else $this->close();
+        if ($this->status == self::STATUS_NEW) {
+            $this->error('Desctruct new');
+        }
+        else {
+            $this->close();
+        }
 
         unset($this->request, $this->response, $this->socket, $this->callback);
     }
@@ -215,77 +219,96 @@ class Task extends Objectt
      */
     public function start()
     {
-        if ($this->status != self::STATUS_NEW) return false;
-        $this->status = self::STATUS_ACTIVE;
+        try {
+            if ($this->status != self::STATUS_NEW) {
+                return false;
+            }
 
-        $request = $this->request;
-        $response = $this->response;
+            $this->status = self::STATUS_ACTIVE;
 
-        $response->timeStart = self::getTime();
+            $request = $this->request;
+            $response = $this->response;
 
-        if (empty($timeLimit)) $timeLimit = $request->getOption('time_limit');
-        if (empty($timeLimit)) $timeLimit = self::TIME_LIMIT;
+            $response->timeStart = self::getTime();
 
-        $this->timeFinishLimit = $response->timeStart + $timeLimit;
+            if (empty($timeLimit)) {
+                $timeLimit = $request->getOption('time_limit');
+            }
+            if (empty($timeLimit)) {
+                $timeLimit = self::TIME_LIMIT;
+            }
 
-        $remoteIp = '';
-        $remotePort = '';
+            $this->timeFinishLimit = $response->timeStart + $timeLimit;
 
-        if (($proxy = $request->getOption('proxy'))) {
-            $proxy_parts = \explode(':', $proxy);
-            $remoteIp = $proxy_parts[0];
-            if (!empty($proxy_parts[1])) $remotePort = $proxy_parts[1];
-        } else {
-            $url_parts = \parse_url($request->url);
-            if (!empty($url_parts['host'])) $remoteIp = $url_parts['host'];
-            if (!empty($url_parts['port'])) $remotePort = $url_parts['port'];
-        }
+            $remoteIp = '';
+            $remotePort = '';
 
-        if (empty($remoteIp)) {
-            $this->error('Empty remoteIp');
-            return false;
-        }
+            if (($proxy = $request->getOption('proxy'))) {
+                $proxy_parts = explode(':', $proxy);
+                $remoteIp = $proxy_parts[0];
+                if (!empty($proxy_parts[1])) {
+                    $remotePort = $proxy_parts[1];
+                }
+            } else {
+                $url_parts = parse_url($request->url);
+                if (!empty($url_parts['host'])) {
+                    $remoteIp = $url_parts['host'];
+                }
+                if (!empty($url_parts['port'])) {
+                    $remotePort = $url_parts['port'];
+                }
+            }
 
-        if (!\preg_match('~[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}~', $remoteIp)) {
-            $remoteIp = \gethostbyname($remoteIp);
             if (empty($remoteIp)) {
                 $this->error('Empty remoteIp');
                 return false;
             }
-        }
 
-        $remotePort = (int)$remotePort;
-        if (empty($remotePort)) $remotePort = 80;
+            if (!preg_match('~[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}~', $remoteIp)) {
+                $remoteIp = gethostbyname($remoteIp);
+                if (empty($remoteIp)) {
+                    $this->error('Empty remoteIp');
+                    return false;
+                }
+            }
 
-        $response->remoteIp = $remoteIp;
-        $response->remotePort = $remotePort;
+            $remotePort = (int)$remotePort;
+            if (empty($remotePort)) $remotePort = 80;
 
-        $this->socket = \socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        $this->socketId = (string)$this->socket;
-        if (!$this->socket) {
-            $this->error('socket_create');
+            $response->remoteIp = $remoteIp;
+            $response->remotePort = $remotePort;
+
+            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            $this->socketId = (string)$this->socket;
+            if (!$this->socket) {
+                $this->error('socket_create');
+                return false;
+            }
+
+            $r = socket_set_nonblock($this->socket);
+            if (!$r) {
+                $this->error('socket_set_nonblock');
+                return false;
+            }
+
+            //socket_set_option($this->socket, \SOL_SOCKET, \SO_KEEPALIVE, 0);
+            //socket_set_option($this->socket, \SOL_SOCKET, \SO_RCVTIMEO, ['sec'=>1, 'usec'=>0]);
+            //socket_set_option($this->socket, \SOL_SOCKET, \SO_SNDTIMEO, ['sec'=>1, 'usec'=>0]);
+
+            $r = socket_connect($this->socket, $remoteIp, $remotePort);
+            if (!($r || socket_last_error($this->socket) == INPROGRESS)) {
+                $this->error('socket_connect');
+                return false;
+            }
+
+            $this->connectDone = true;
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
             return false;
         }
-
-        $r = \socket_set_nonblock($this->socket);
-        if (!$r) {
-            $this->error('socket_set_nonblock');
-            return false;
-        }
-
-        //\socket_set_option($this->socket, \SOL_SOCKET, \SO_KEEPALIVE, 0);
-        //\socket_set_option($this->socket, \SOL_SOCKET, \SO_RCVTIMEO, array('sec'=>1, 'usec'=>0));
-        //\socket_set_option($this->socket, \SOL_SOCKET, \SO_SNDTIMEO, array('sec'=>1, 'usec'=>0));
-
-        $r = \socket_connect($this->socket, $remoteIp, $remotePort);
-        if (!($r || \socket_last_error($this->socket) == INPROGRESS)) {
-            $this->error('socket_connect');
-            return false;
-        }
-
-        $this->connectDone = true;
-
-        return true;
     }
 
     /**
@@ -295,61 +318,87 @@ class Task extends Objectt
      */
     public function write()
     {
-        if ($this->status != self::STATUS_ACTIVE) return false;
-        if ($this->writeDone) return false;
-
-        $request = $this->request;
-        $response = $this->response;
-
-        $response->timeWrite = self::getTime();
-
-        $url_parts = \parse_url($request->url);
-
-        $http_protocol = $request->getOption('proxy') ? '1.0' : '1.1';
-
-        $input = $request->method . ' ';
-        $input .= ''
-            //.$url_parts['host']
-            . (isset($url_parts['path']) ? $url_parts['path'] : '/')
-            . (isset($url_parts['query']) ? '?' . $url_parts['query'] : '')
-            . ' HTTP/' . $http_protocol . "\r\n";
-
-        $input .= 'Host: ' . $url_parts['host'] . "\r\n";
-        if ($http_protocol == '1.1') $input .= 'Connection: close' . "\r\n";
-        if (($tmp = $request->getOption('user_agent'))) $input .= 'User-Agent: ' . $tmp . "\r\n";
-        if (($tmp = $request->getOption('referer'))) $input .= 'Referer: ' . $tmp . "\r\n";
-        if (($tmp = $request->getOption('cookie'))) $input .= 'Cookie: ' . $tmp . "\r\n";
-
-        if (!empty($request->headers)) {
-            if (\is_scalar($request->headers)) $input .= $request->headers;
-            else foreach ($request->headers as $k => $v) $input .= $k . ': ' . $v . "\r\n";
-        }
-
-        if ($request->method == 'POST') {
-            if (!empty($request->post)) {
-                if (\is_scalar($request->post)) $post = $request->post;
-                else $post = \http_build_query($request->post);
-            } else {
-                $post = '';
+        try {
+            if ($this->status != self::STATUS_ACTIVE) {
+                return false;
+            }
+            if ($this->writeDone) {
+                return false;
             }
 
-            $input .= 'Content-Type: application/x-www-form-urlencoded' . "\r\n";
-            $input .= 'Content-Length: ' . \strlen($post) . "\r\n";
-            $input .= "\r\n";
-            $input .= $post;
-        } else {
-            $input .= "\r\n";
-        }
+            $request = $this->request;
+            $response = $this->response;
 
-        $r = \socket_write($this->socket, $input);
-        if (!$r) {
-            $this->error('socket_write');
+            $response->timeWrite = self::getTime();
+
+            $url_parts = parse_url($request->url);
+
+            $http_protocol = $request->getOption('proxy') ? '1.0' : '1.1';
+
+            $input = $request->method . ' ';
+            $input .= ''
+                //.$url_parts['host']
+                . (isset($url_parts['path']) ? $url_parts['path'] : '/')
+                . (isset($url_parts['query']) ? '?' . $url_parts['query'] : '')
+                . ' HTTP/' . $http_protocol . "\r\n";
+
+            $input .= 'Host: ' . $url_parts['host'] . "\r\n";
+            if ($http_protocol == '1.1') {
+                $input .= 'Connection: close' . "\r\n";
+            }
+            if (($tmp = $request->getOption('user_agent'))) {
+                $input .= 'User-Agent: ' . $tmp . "\r\n";
+            }
+            if (($tmp = $request->getOption('referer'))) {
+                $input .= 'Referer: ' . $tmp . "\r\n";
+            }
+            if (($tmp = $request->getOption('cookie'))) {
+                $input .= 'Cookie: ' . $tmp . "\r\n";
+            }
+
+            if (!empty($request->headers)) {
+                if (is_scalar($request->headers)) {
+                    $input .= $request->headers;
+                } else {
+                    foreach ($request->headers as $k => $v) {
+                        $input .= $k . ': ' . $v . "\r\n";
+                    }
+                }
+            }
+
+            if ($request->method == 'POST') {
+                if (!empty($request->post)) {
+                    if (is_scalar($request->post)) {
+                        $post = $request->post;
+                    } else {
+                        $post = http_build_query($request->post);
+                    }
+                } else {
+                    $post = '';
+                }
+
+                $input .= 'Content-Type: application/x-www-form-urlencoded' . "\r\n";
+                $input .= 'Content-Length: ' . strlen($post) . "\r\n";
+                $input .= "\r\n";
+                $input .= $post;
+            } else {
+                $input .= "\r\n";
+            }
+
+            $r = socket_write($this->socket, $input);
+            if (!$r) {
+                $this->error('socket_write');
+                return false;
+            }
+
+            $this->writeDone = true;
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
             return false;
         }
-
-        $this->writeDone = true;
-
-        return true;
     }
 
     /**
@@ -357,16 +406,28 @@ class Task extends Objectt
      */
     public function read()
     {
-        if ($this->status != self::STATUS_ACTIVE) return false;
-        if (!$this->writeDone) return false;
-        if ($this->readDone) return false;
+        try {
+            if ($this->status != self::STATUS_ACTIVE) {
+                return false;
+            }
+            if (!$this->writeDone) {
+                return false;
+            }
+            if ($this->readDone) {
+                return false;
+            }
 
-        $response = $this->response;
-        $response->timeRead = self::getTime();
+            $response = $this->response;
+            $response->timeRead = self::getTime();
 
-        do {
-            $tmp = \socket_read($this->socket, 4096);
-        } while ($this->_read($tmp));
+            do {
+                $tmp = socket_read($this->socket, 4096);
+            } while ($this->_read($tmp));
+
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -380,7 +441,7 @@ class Task extends Objectt
         $close = false;
 
         if ($output === false) {
-            if (($errorno = \socket_last_error($this->socket)) && $errorno != INPROGRESS) {
+            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
                 $this->error('reading from socket');
                 return false;
             }
@@ -393,14 +454,14 @@ class Task extends Objectt
 
         if ($output === "") {
             $close = true;
-        } elseif (\substr($response->output, -7) === "\x0D\x0A\x30\x0D\x0A\x0D\x0A") {
+        } elseif (substr($response->output, -7) === "\x0D\x0A\x30\x0D\x0A\x0D\x0A") {
             $response->output = substr($response->output, 0, -7);
             $close = true;
         }
 
         if (!isset($response->header)) {
-            $pos1 = \strpos($response->output, "\n\n");
-            $pos2 = \strpos($response->output, "\r\n\r\n");
+            $pos1 = strpos($response->output, "\n\n");
+            $pos2 = strpos($response->output, "\r\n\r\n");
 
             if ($close || $pos1 !== false || $pos2 !== false) {
                 if ($pos1 !== false && $pos2 !== false) {
@@ -418,15 +479,15 @@ class Task extends Objectt
                     $pos = $pos2;
                     $posc = 4;
                 } else {
-                    $pos = \strlen($response->output);
+                    $pos = strlen($response->output);
                     $posc = 0;
                 }
 
-                $response->header = \substr($response->output, 0, $pos);
-                $header_parts = \preg_split('~[\\n\\r]+(?!\\s)~s', $response->header, -1, \PREG_SPLIT_NO_EMPTY);
+                $response->header = substr($response->output, 0, $pos);
+                $header_parts = preg_split('~[\\n\\r]+(?!\\s)~s', $response->header, -1, \PREG_SPLIT_NO_EMPTY);
 
                 // code
-                if (empty($header_parts[0]) || !\preg_match('~http/(\\d+\\.\\d+) (\\d+)~i', $header_parts[0], $matches)) {
+                if (empty($header_parts[0]) || !preg_match('~http/(\\d+\\.\\d+) (\\d+)~i', $header_parts[0], $matches)) {
                     $this->error('Incorrect response status');
                     return false;
                 }
@@ -436,20 +497,25 @@ class Task extends Objectt
                 unset($header_parts[0]);
 
                 foreach ($header_parts as $header_part) {
-                    $header_part = \explode(':', $header_part, 2);
-                    $header_part[0] = \trim($header_part[0]);
-                    $header_part[1] = (isset($header_part[1]) ? \trim($header_part[1]) : null);
+                    $header_part = explode(':', $header_part, 2);
+                    $header_part[0] = trim($header_part[0]);
+                    $header_part[1] = (isset($header_part[1]) ? trim($header_part[1]) : null);
 
                     $response->headers[$header_part[0]] = $header_part[1];
 
-                    if (\strtolower($header_part[0]) == 'content-length') $response->headerContentLength = (int)$header_part[1];
+                    if (strtolower($header_part[0]) == 'content-length') {
+                        $response->headerContentLength = (int)$header_part[1];
+                    }
                 }
 
                 if ($request->getOption('header_only')) {
                     $close = true;
                 } else {
-                    if (\strlen($response->output) <= $pos + $posc) $response->body = "";
-                    else $response->body = \substr($response->output, $pos + $posc);
+                    if (strlen($response->output) <= $pos + $posc) {
+                        $response->body = "";
+                    } else {
+                        $response->body = substr($response->output, $pos + $posc);
+                    }
                 }
             }
         } else {
@@ -480,7 +546,9 @@ class Task extends Objectt
      */
     public function close()
     {
-        if ($this->status == self::STATUS_CLOSED) return true;
+        if ($this->status == self::STATUS_CLOSED) {
+            return true;
+        }
         $this->status = self::STATUS_CLOSED;
 
         $request = $this->request;
@@ -488,17 +556,21 @@ class Task extends Objectt
 
         $response->timeClose = self::getTime();
 
-        if (isset($this->socket) && \is_resource($this->socket)) {
-            if ($this->connectDone) \socket_shutdown($this->socket, 2);
-            \socket_close($this->socket);
+        if (isset($this->socket) && is_resource($this->socket)) {
+            if ($this->connectDone) {
+                @socket_shutdown($this->socket, 2);
+            }
+            @socket_close($this->socket);
         }
 
         $response->timeFinish = self::getTime();
 
-        if (empty($response->result)) $response->result = 'ok';
+        if (empty($response->result)) {
+            $response->result = 'ok';
+        }
 
-        if ($this->callback && \is_callable($this->callback)) {
-            \call_user_func_array($this->callback, [$this]);
+        if ($this->callback && is_callable($this->callback)) {
+            call_user_func_array($this->callback, [$this]);
         }
 
         return true;
@@ -512,11 +584,16 @@ class Task extends Objectt
      */
     public function error($error)
     {
-        if ($this->status == self::STATUS_CLOSED) return true;
+        if ($this->status == self::STATUS_CLOSED) {
+            return true;
+        }
 
-        if (isset($this->socket) && \is_resource($this->socket))
-            if (($errorno = \socket_last_error($this->socket)) && $errorno != INPROGRESS)
-                $error .= ': ' . \socket_strerror($errorno) . ' (' . $errorno . ')';
+        if (isset($this->socket) && is_resource($this->socket)) {
+            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
+                $error .= ': ' . socket_strerror($errorno) . ' (' . $errorno . ')';
+            }
+        }
+
 
         $response = $this->response;
         $response->result = 'error';
@@ -536,19 +613,29 @@ class Task extends Objectt
      */
     public function check($time = null)
     {
-        if ($this->status == self::STATUS_CLOSED) return false;
+        try {
+            if ($this->status == self::STATUS_CLOSED) {
+                return false;
+            }
 
-        if (!isset($this->socket) || !\is_resource($this->socket)) {
-            $this->error('check socket');
+            if (!isset($this->socket) || !is_resource($this->socket)) {
+                $this->error('check socket');
+                return false;
+            }
+
+            if (!isset($time)) {
+                $time = self::getTime();
+            }
+            if ($time > $this->timeFinishLimit) {
+                $this->error('check time_limit');
+                return false;
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            $this->error($e->getMessage());
             return false;
         }
-
-        if (!isset($time)) $time = self::getTime();
-        if ($time > $this->timeFinishLimit) {
-            $this->error('check time_limit');
-            return false;
-        }
-
-        return true;
     }
 }
