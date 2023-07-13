@@ -556,7 +556,7 @@ class Task extends Objectt
 
         $response->timeClose = self::getTime();
 
-        if (isset($this->socket) && is_resource($this->socket)) {
+        if ($this->socket && is_resource($this->socket)) {
             if ($this->connectDone) {
                 @socket_shutdown($this->socket, 2);
             }
@@ -588,7 +588,7 @@ class Task extends Objectt
             return true;
         }
 
-        if (isset($this->socket) && is_resource($this->socket)) {
+        if ($this->socket && is_resource($this->socket)) {
             if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
                 $error .= ': ' . socket_strerror($errorno) . ' (' . $errorno . ')';
             }
@@ -618,7 +618,7 @@ class Task extends Objectt
                 return false;
             }
 
-            if (!isset($this->socket) || !is_resource($this->socket)) {
+            if (!$this->socket || !is_resource($this->socket)) {
                 $this->error('check socket');
                 return false;
             }

@@ -72,11 +72,17 @@ class Crawler extends Objectt implements CrawlerInterface
             $request,
             new Response($request->url),
             function (Task $task) use ($crawler, $callback) {
+                $crawler->remove($task);
+
                 if ($callback && is_callable($callback)) {
-                    call_user_func_array($callback, [$task->getRequest(), $task->getResponse()]);
+                    try {
+                        call_user_func_array($callback, [$task->getRequest(), $task->getResponse()]);
+                    } catch (\Exception $e) {
+                    } catch (\Throwable $e) {
+                    }
                 }
 
-                $crawler->remove($task);
+                unset($task);
             }
         );
 
@@ -102,7 +108,6 @@ class Crawler extends Objectt implements CrawlerInterface
         if (isset($this->tasks[$taskId])) {
             unset($this->tasks[$taskId]);
         }
-        unset($task);
     }
 
     /**
@@ -153,8 +158,9 @@ class Crawler extends Objectt implements CrawlerInterface
 
         $i = 0;
         foreach ($this->tasks as $task) {
-            if (!$task->start())
+            if (!$task->start()) {
                 continue;
+            }
 
             $this->sockets2tasks[$task->getSocketId()] = $task;
             $this->tasksActive[$task->getId()] = $task;
@@ -180,15 +186,25 @@ class Crawler extends Objectt implements CrawlerInterface
         $except = [];
 
         foreach ($this->tasksActive as $task) {
-            $except[] = $task->getSocket();
+            $socket = $task->getSocket();
+            if (!$socket || !is_resource($socket)) {
+                $task->error('check socket');
+                continue;
+            }
+
+            $except[] = $socket;
             if (!$task->isWriteDone()) {
-                $write[] = $task->getSocket();
+                $write[] = $socket;
             } elseif (!$task->isReadDone()) {
-                $read[] = $task->getSocket();
+                $read[] = $socket;
             }
         }
 
-        $n = socket_select($read, $write, $except, 0);
+        if (empty($read) && empty($write) && empty($except)) {
+            return;
+        }
+
+        $n = socket_select($read, $write, $except, 0, 100);
         if (!$n) {
             return;
         }
