@@ -2,9 +2,11 @@
 namespace Pmaxs\Crawler;
 
 if (substr(\PHP_OS, 0, 3) == 'WIN') {
-    define('INPROGRESS', 10035);
+    define('С_SOCKET_EAGAIN', SOCKET_EAGAIN);
+    define('С_SOCKET_EINPROGRESS', 10035);
 } else {
-    define('INPROGRESS', 115);
+    define('С_SOCKET_EAGAIN', SOCKET_EAGAIN);
+    define('С_SOCKET_EINPROGRESS', 115); // SOCKET_EINPROGRESS
 }
 
 /**
@@ -296,7 +298,7 @@ class Task extends Objectt
             //socket_set_option($this->socket, \SOL_SOCKET, \SO_SNDTIMEO, ['sec'=>1, 'usec'=>0]);
 
             $r = socket_connect($this->socket, $remoteIp, $remotePort);
-            if (!($r || socket_last_error($this->socket) == INPROGRESS)) {
+            if (!($r || socket_last_error($this->socket) == С_SOCKET_EINPROGRESS)) {
                 $this->error('socket_connect');
                 return false;
             }
@@ -386,7 +388,7 @@ class Task extends Objectt
             }
 
             $r = socket_write($this->socket, $input);
-            if (!$r) {
+            if ($r === false) {
                 $this->error('socket_write');
                 return false;
             }
@@ -419,10 +421,21 @@ class Task extends Objectt
 
             $response = $this->response;
             $response->timeRead = self::getTime();
+            $tries = 0;
 
             do {
                 $tmp = socket_read($this->socket, 4096);
-            } while ($this->_read($tmp));
+                $r = $this->_read($tmp);
+                if ($r === true) {
+                    continue;
+                } elseif ($r === false || $tries > 5) {
+                    break;
+                }
+
+                $tries++;
+                usleep(1000);
+
+            } while (true);
 
         } catch (\Exception $e) {
             $this->error($e->getMessage());
@@ -441,10 +454,14 @@ class Task extends Objectt
         $close = false;
 
         if ($output === false) {
-            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
-                $this->error('reading from socket');
-                return false;
+            if ($errorno = socket_last_error($this->socket)) {
+                if (!in_array($errorno, [С_SOCKET_EINPROGRESS, С_SOCKET_EAGAIN])) {
+                    $this->error('reading from socket');
+                    return false;
+                }
+                return 1;
             }
+            return true;
         }
 
         $request = $this->request;
@@ -488,7 +505,7 @@ class Task extends Objectt
 
                 // code
                 if (empty($header_parts[0]) || !preg_match('~http/(\\d+\\.\\d+) (\\d+)~i', $header_parts[0], $matches)) {
-                    $this->error('Incorrect response status');
+                    $this->error('incorrect response status (' . ($header_parts[0] ?? '') . ')');
                     return false;
                 }
 
@@ -589,7 +606,7 @@ class Task extends Objectt
         }
 
         if ($this->socket && is_resource($this->socket)) {
-            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
+            if (($errorno = socket_last_error($this->socket))) {
                 $error .= ': ' . socket_strerror($errorno) . ' (' . $errorno . ')';
             }
         }
