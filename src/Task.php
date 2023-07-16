@@ -302,6 +302,7 @@ class Task extends Objectt
                 $this->error('socket_connect');
                 return false;
             }
+            socket_clear_error($this->socket);
 
             $this->connectDone = true;
 
@@ -424,18 +425,23 @@ class Task extends Objectt
             $tries = 0;
 
             do {
-                $tmp = socket_read($this->socket, 4096);
-                $r = $this->_read($tmp);
-                if ($r === true) {
-                    continue;
-                } elseif ($r === false || $tries > 5) {
-                    break;
+                $output = socket_read($this->socket, 4096);
+
+                if ($output === false) {
+                    $errorno = socket_last_error($this->socket);
+                    if ($errorno) {
+                        if ($errorno == С_SOCKET_EAGAIN && $tries < 5) {
+                            $tries++;
+                            socket_clear_error($this->socket);
+                            usleep(10000);
+                            continue;
+                        }
+                        $this->error('reading from socket');
+                        break;
+                    }
                 }
 
-                $tries++;
-                usleep(1000);
-
-            } while (true);
+            } while ($this->_read($output));
 
         } catch (\Exception $e) {
             $this->error($e->getMessage());
@@ -452,24 +458,12 @@ class Task extends Objectt
     protected function _read($output)
     {
         $close = false;
-
-        if ($output === false) {
-            if ($errorno = socket_last_error($this->socket)) {
-                if (!in_array($errorno, [С_SOCKET_EINPROGRESS, С_SOCKET_EAGAIN])) {
-                    $this->error('reading from socket');
-                    return false;
-                }
-                return 1;
-            }
-            return true;
-        }
-
         $request = $this->request;
         $response = $this->response;
 
         $response->output .= $output;
 
-        if ($output === "") {
+        if ($output === '') {
             $close = true;
         } elseif (substr($response->output, -7) === "\x0D\x0A\x30\x0D\x0A\x0D\x0A") {
             $response->output = substr($response->output, 0, -7);
@@ -529,14 +523,14 @@ class Task extends Objectt
                     $close = true;
                 } else {
                     if (strlen($response->output) <= $pos + $posc) {
-                        $response->body = "";
+                        $response->body = '';
                     } else {
                         $response->body = substr($response->output, $pos + $posc);
                     }
                 }
             }
         } else {
-            $response->body .= $output;
+            $response->body.= $output;
         }
 
         if (
