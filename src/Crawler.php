@@ -12,17 +12,17 @@ class Crawler extends Objectt implements CrawlerInterface
     protected $tasksIndex = 0;
 
     /**
-     * @var array
+     * @var array|Task[]
      */
     protected $tasks = [];
 
     /**
-     * @var array
+     * @var array|Task[]
      */
     protected $tasksActive = [];
 
     /**
-     * @var array
+     * @var array|Task[]
      */
     protected $sockets2tasks = [];
 
@@ -187,7 +187,7 @@ class Crawler extends Objectt implements CrawlerInterface
 
         foreach ($this->tasksActive as $task) {
             $socket = $task->getSocket();
-            if (!$socket || !is_resource($socket)) {
+            if (!$socket) {
                 $task->error('check socket');
                 continue;
             }
@@ -248,12 +248,12 @@ class Crawler extends Objectt implements CrawlerInterface
      */
     protected function socket2task($socket)
     {
-        $socket_id = (string)$socket;
-
-        if (empty($socket_id) || empty($this->sockets2tasks[$socket_id]) || !$this->sockets2tasks[$socket_id] instanceof Task) {
+        if (!$socket instanceof \Socket) {
             return null;
-        } else {
-            return $this->sockets2tasks[$socket_id];
         }
+
+        $socketId = spl_object_id($socket);
+
+        return $this->sockets2tasks[$socketId] ?? null;
     }
 }

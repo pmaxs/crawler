@@ -281,11 +281,12 @@ class Task extends Objectt
             $response->remotePort = $remotePort;
 
             $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            $this->socketId = is_object($this->socket) ? spl_object_id($this->socket) : (string)$this->socket;
-            if (!$this->socket) {
+            if (!$this->socket instanceof \Socket) {
                 $this->error('socket_create');
                 return false;
             }
+
+            $this->socketId = spl_object_id($this->socket);
 
             $r = socket_set_nonblock($this->socket);
             if (!$r) {
@@ -567,7 +568,7 @@ class Task extends Objectt
 
         $response->timeClose = self::getTime();
 
-        if ($this->socket && is_resource($this->socket)) {
+        if ($this->socket) {
             if ($this->connectDone) {
                 @socket_shutdown($this->socket, 2);
             }
@@ -599,8 +600,8 @@ class Task extends Objectt
             return true;
         }
 
-        if ($this->socket && is_resource($this->socket)) {
-            if (($errorno = socket_last_error($this->socket))) {
+        if ($this->socket) {
+            if ($errorno = socket_last_error($this->socket)) {
                 $error .= ': ' . socket_strerror($errorno) . ' (' . $errorno . ')';
             }
         }
@@ -629,7 +630,7 @@ class Task extends Objectt
                 return false;
             }
 
-            if (!$this->socket || !is_resource($this->socket)) {
+            if (!$this->socket) {
                 $this->error('check socket');
                 return false;
             }
