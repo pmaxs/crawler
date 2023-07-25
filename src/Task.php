@@ -281,7 +281,7 @@ class Task extends Objectt
             $response->remotePort = $remotePort;
 
             $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            $this->socketId = (string)$this->socket;
+            $this->socketId = is_object($this->socket) ? spl_object_id($this->socket) : (string)$this->socket;
             if (!$this->socket) {
                 $this->error('socket_create');
                 return false;
