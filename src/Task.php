@@ -1,103 +1,32 @@
 <?php
+
 namespace Pmaxs\Crawler;
 
 if (substr(\PHP_OS, 0, 3) == 'WIN') {
-    define('С_SOCKET_EAGAIN', SOCKET_EAGAIN);
-    define('С_SOCKET_EINPROGRESS', 10035);
+    define('INPROGRESS', 10035);
 } else {
-    define('С_SOCKET_EAGAIN', SOCKET_EAGAIN);
-    define('С_SOCKET_EINPROGRESS', 115); // SOCKET_EINPROGRESS
+    define('INPROGRESS', 115);
 }
 
-/**
- * Class Task
- */
 class Task extends Objectt
 {
-    /**
-     * @var int
-     */
     const STATUS_NEW = 0;
-
-    /**
-     * @var int
-     */
     const STATUS_ACTIVE = 1;
-
-    /**
-     * @var int
-     */
     const STATUS_CLOSED = 2;
-
-    /**
-     * @var int
-     */
     const TIME_LIMIT = 30;
 
-    /**
-     * @var int
-     */
-    protected $id;
+    protected ?int $id = null;
+    protected ?int $status = self::STATUS_NEW;
+    protected ?Request $request = null;
+    protected ?Response $response = null;
+    protected $callback = null;
+    protected ?\Socket $socket = null;
+    protected ?string $socketId = null;
+    protected ?float $timeFinishLimit;
+    protected ?bool $connectDone = false;
+    protected ?bool $writeDone = false;
+    protected ?bool $readDone = false;
 
-    /**
-     * @var int
-     */
-    protected $status = self::STATUS_NEW;
-
-    /**
-     * @var Request
-     */
-    protected $request;
-
-    /**
-     * @var Response
-     */
-    protected $response;
-
-    /**
-     * @var callable
-     */
-    protected $callback;
-
-    /**
-     * @var resource
-     */
-    protected $socket;
-
-    /**
-     * @var string
-     */
-    protected $socketId;
-
-    /**
-     * @var float
-     */
-    protected $timeFinishLimit;
-
-    /**
-     * @var boolean
-     */
-    protected $connectDone = false;
-
-    /**
-     * @var boolean
-     */
-    protected $writeDone = false;
-
-    /**
-     * @var boolean
-     */
-    protected $readDone = false;
-
-    /**
-     * Constructor
-     *
-     * @param int $id
-     * @param Request $request
-     * @param Response $response
-     * @param callable $callback
-     * @param array $options
-     */
     public function __construct($id, Request $request, Response $response, $callback, array $options = [])
     {
         parent::__construct($options);
@@ -108,107 +37,58 @@ class Task extends Objectt
         $this->callback = $callback;
     }
 
-    /**
-     * Destructor
-     */
     public function __destruct()
     {
         if ($this->status == self::STATUS_NEW) {
             $this->error('Desctruct new');
-        }
-        else {
+        } else {
             $this->close();
         }
 
         unset($this->request, $this->response, $this->socket, $this->callback);
     }
 
-    /**
-     * Returns task id.
-     *
-     * @return int
-     */
-    public function getId()
+    public function getId(): ?int
     {
         return $this->id;
     }
 
-    /**
-     * Returns status.
-     *
-     * @return int
-     */
-    public function getStatus()
+    public function getStatus(): ?int
     {
         return $this->status;
     }
 
-    /**
-     * Returns request.
-     *
-     * @return Request
-     */
-    public function getRequest()
+    public function getRequest(): ?Request
     {
         return $this->request;
     }
 
-    /**
-     * Returns response.
-     *
-     * @return Response
-     */
-    public function getResponse()
+    public function getResponse(): ?Response
     {
         return $this->response;
     }
 
-    /**
-     * Returns socket.
-     *
-     * @return resource
-     */
-    public function getSocket()
+    public function getSocket(): ?\Socket
     {
         return $this->socket;
     }
 
-    /**
-     * Returns socket id.
-     *
-     * @return string
-     */
-    public function getSocketId()
+    public function getSocketId(): ?string
     {
         return $this->socketId;
     }
 
-    /**
-     * Returns whether connection was done.
-     *
-     * @return bool
-     */
-    public function isConnectDone()
+    public function isConnectDone(): ?bool
     {
         return $this->connectDone;
     }
 
-    /**
-     * Returns whether write operation was done.
-     *
-     * @return bool
-     */
-    public function isWriteDone()
+    public function isWriteDone(): ?bool
     {
         return $this->writeDone;
     }
 
-    /**
-     * Returns whether read operation was done.
-     *
-     * @return bool
-     */
-    public function isReadDone()
+    public function isReadDone(): ?bool
     {
         return $this->readDone;
     }
@@ -216,8 +96,6 @@ class Task extends Objectt
     /**
      * Starts task.
      * Creates socket, connects to remote host.
-     *
-     * @return bool
      */
     public function start()
     {
@@ -280,12 +158,13 @@ class Task extends Objectt
             $response->remoteIp = $remoteIp;
             $response->remotePort = $remotePort;
 
-            $this->socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            if (!$this->socket instanceof \Socket) {
+            $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if (!$socket instanceof \Socket) {
                 $this->error('socket_create');
                 return false;
             }
 
+            $this->socket = $socket;
             $this->socketId = spl_object_id($this->socket);
 
             $r = socket_set_nonblock($this->socket);
@@ -299,11 +178,10 @@ class Task extends Objectt
             //socket_set_option($this->socket, \SOL_SOCKET, \SO_SNDTIMEO, ['sec'=>1, 'usec'=>0]);
 
             $r = socket_connect($this->socket, $remoteIp, $remotePort);
-            if (!($r || socket_last_error($this->socket) == С_SOCKET_EINPROGRESS)) {
+            if (!($r || socket_last_error($this->socket) == INPROGRESS)) {
                 $this->error('socket_connect');
                 return false;
             }
-            socket_clear_error($this->socket);
 
             $this->connectDone = true;
 
@@ -317,8 +195,6 @@ class Task extends Objectt
 
     /**
      * Writes request to remote host.
-     *
-     * @return bool
      */
     public function write()
     {
@@ -390,7 +266,7 @@ class Task extends Objectt
             }
 
             $r = socket_write($this->socket, $input);
-            if ($r === false) {
+            if (!$r) {
                 $this->error('socket_write');
                 return false;
             }
@@ -423,26 +299,10 @@ class Task extends Objectt
 
             $response = $this->response;
             $response->timeRead = self::getTime();
-            $tries = 0;
 
             do {
-                $output = socket_read($this->socket, 4096);
-
-                if ($output === false) {
-                    $errorno = socket_last_error($this->socket);
-                    if ($errorno) {
-                        if ($errorno == С_SOCKET_EAGAIN && $tries < 5) {
-                            $tries++;
-                            socket_clear_error($this->socket);
-                            usleep(10000);
-                            continue;
-                        }
-                        $this->error('reading from socket');
-                        break;
-                    }
-                }
-
-            } while ($this->_read($output));
+                $tmp = socket_read($this->socket, 4096);
+            } while ($this->_read($tmp));
 
         } catch (\Exception $e) {
             $this->error($e->getMessage());
@@ -452,19 +312,24 @@ class Task extends Objectt
 
     /**
      * Reads and processes response from remote host (part of read()).
-     *
-     * @param $output
-     * @return bool
      */
     protected function _read($output)
     {
         $close = false;
+
+        if ($output === false) {
+            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
+                $this->error('reading from socket');
+                return false;
+            }
+        }
+
         $request = $this->request;
         $response = $this->response;
 
         $response->output .= $output;
 
-        if ($output === '') {
+        if ($output === "") {
             $close = true;
         } elseif (substr($response->output, -7) === "\x0D\x0A\x30\x0D\x0A\x0D\x0A") {
             $response->output = substr($response->output, 0, -7);
@@ -500,7 +365,7 @@ class Task extends Objectt
 
                 // code
                 if (empty($header_parts[0]) || !preg_match('~http/(\\d+\\.\\d+) (\\d+)~i', $header_parts[0], $matches)) {
-                    $this->error('incorrect response status (' . ($header_parts[0] ?? '') . ')');
+                    $this->error('Incorrect response status');
                     return false;
                 }
 
@@ -524,14 +389,14 @@ class Task extends Objectt
                     $close = true;
                 } else {
                     if (strlen($response->output) <= $pos + $posc) {
-                        $response->body = '';
+                        $response->body = "";
                     } else {
                         $response->body = substr($response->output, $pos + $posc);
                     }
                 }
             }
         } else {
-            $response->body.= $output;
+            $response->body .= $output;
         }
 
         if (
@@ -553,8 +418,6 @@ class Task extends Objectt
 
     /**
      * Closes task.
-     *
-     * @return bool
      */
     public function close()
     {
@@ -568,7 +431,7 @@ class Task extends Objectt
 
         $response->timeClose = self::getTime();
 
-        if ($this->socket) {
+        if ($this->socket instanceof \Socket) {
             if ($this->connectDone) {
                 @socket_shutdown($this->socket, 2);
             }
@@ -581,7 +444,7 @@ class Task extends Objectt
             $response->result = 'ok';
         }
 
-        if ($this->callback && is_callable($this->callback)) {
+        if (is_callable($this->callback)) {
             call_user_func_array($this->callback, [$this]);
         }
 
@@ -590,9 +453,6 @@ class Task extends Objectt
 
     /**
      * Closes task with error.
-     *
-     * @param string $error
-     * @return bool
      */
     public function error($error)
     {
@@ -600,8 +460,8 @@ class Task extends Objectt
             return true;
         }
 
-        if ($this->socket) {
-            if ($errorno = socket_last_error($this->socket)) {
+        if ($this->socket instanceof \Socket) {
+            if (($errorno = socket_last_error($this->socket)) && $errorno != INPROGRESS) {
                 $error .= ': ' . socket_strerror($errorno) . ' (' . $errorno . ')';
             }
         }
@@ -619,9 +479,6 @@ class Task extends Objectt
     /**
      * Checks if task is valid.
      * If task is not valid, closes it with error.
-     *
-     * @param int $time current time
-     * @return bool
      */
     public function check($time = null)
     {
@@ -630,7 +487,7 @@ class Task extends Objectt
                 return false;
             }
 
-            if (!$this->socket) {
+            if (!$this->socket instanceof \Socket) {
                 $this->error('check socket');
                 return false;
             }

@@ -1,32 +1,16 @@
 <?php
+
 namespace Pmaxs\Crawler;
 
-/**
- * Class Objectt
- */
 abstract class Objectt
 {
-    /**
-     * @var array
-     */
-    public $options;
-
-    /**
-     * Constructor
-     *
-     * @param array $options
-     */
+    public ?array $options = [];
+    
     public function __construct(array $options = [])
     {
         $this->options = $options;
     }
 
-    /**
-     * Returns option.
-     *
-     * @param string $name option name
-     * @return mixed option value
-     */
     public function getOption($name)
     {
         if (isset($this->options[$name])) {
@@ -36,23 +20,11 @@ abstract class Objectt
         return null;
     }
 
-    /**
-     * Returns options.
-     *
-     * @return mixed options
-     */
     public function getOptions()
     {
         return $this->options;
     }
 
-    /**
-     * Sets option.
-     *
-     * @param string $name option name
-     * @param string $value option value
-     * @return $this
-     */
     public function setOption($name, $value)
     {
         $this->options[$name] = $value;
@@ -60,12 +32,6 @@ abstract class Objectt
         return $this;
     }
 
-    /**
-     * Sets options.
-     *
-     * @param array $options options
-     * @return $this
-     */
     public function setOptions(array $options = [])
     {
         $this->options = $options;
@@ -73,11 +39,6 @@ abstract class Objectt
         return $this;
     }
 
-    /**
-     * Returns current time.
-     *
-     * @return float
-     */
     public static function getTime()
     {
         $mtime = microtime();

@@ -1,38 +1,15 @@
 <?php
+
 namespace Pmaxs\Crawler;
 
-/**
- * Class Request
- */
 class Request extends Objectt
 {
-    /**
-     * @var string
-     */
-    public $url;
+    public ?string $url = null;
+    public ?string $method = null;
+    public mixed $post = null;
+    public mixed $headers = null;
 
     /**
-     * @var string
-     */
-    public $method;
-
-    /**
-     * @var mixed
-     */
-    public $post;
-
-    /**
-     * @var mixed
-     */
-    public $headers;
-
-    /**
-     * Constructor.
-     *
-     * @param string $url
-     * @param string $method
-     * @param mixed $post
-     * @param mixed $headers
      * @param array $options
      * - user_agent
      * - referer
@@ -41,7 +18,7 @@ class Request extends Objectt
      * - proxy
      * - header_only
      */
-    public function __construct($url, $method = 'GET', $post = null, $headers = null, array $options = [])
+    public function __construct(string $url, string $method = 'GET', $post = null, $headers = null, array $options = [])
     {
         $this->url = $url;
         $this->method = strtoupper($method);

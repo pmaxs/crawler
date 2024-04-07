@@ -1,98 +1,27 @@
 <?php
+
 namespace Pmaxs\Crawler;
 
-/**
- * Class Response
- */
 class Response extends Objectt
 {
-    /**
-     * @var string
-     */
-    public $url;
+    public ?string $url = null;
+    public ?string $result = null;
+    public ?string $error = null;
+    public ?string $remoteIp = null;
+    public ?int $remotePort = null;
+    public ?int $code = null;
+    public ?string $header = null;
+    public ?int $headerContentLength = null;
+    public ?array $headers = null;
+    public ?string $body = null;
+    public ?string $output = null;
+    public ?float $timeStart = null;
+    public ?float $timeWrite = null;
+    public ?float $timeRead = null;
+    public ?float $timeClose = null;
+    public ?float $timeFinish = null;
 
-    /**
-     * @var string
-     */
-    public $result;
-
-    /**
-     * @var string
-     */
-    public $error;
-
-    /**
-     * @var string
-     */
-    public $remoteIp;
-
-    /**
-     * @var int
-     */
-    public $remotePort;
-
-    /**
-     * @var int
-     */
-    public $code;
-
-    /**
-     * @var string
-     */
-    public $header;
-
-    /**
-     * @var int
-     */
-    public $headerContentLength;
-
-    /**
-     * @var array
-     */
-    public $headers;
-
-    /**
-     * @var string
-     */
-    public $body;
-
-    /**
-     * @var string
-     */
-    public $output;
-
-    /**
-     * @var float
-     */
-    public $timeStart;
-
-    /**
-     * @var float
-     */
-    public $timeWrite;
-
-    /**
-     * @var float
-     */
-    public $timeRead;
-
-    /**
-     * @var float
-     */
-    public $timeClose;
-
-    /**
-     * @var float
-     */
-    public $timeFinish;
-
-    /**
-     * Construcor.
-     *
-     * @param string $url
-     * @param array $options
-     */
-    public function __construct($url, array $options = [])
+    public function __construct(string $url, array $options = [])
     {
         parent::__construct($options);
 

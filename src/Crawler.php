@@ -1,39 +1,19 @@
 <?php
+
 namespace Pmaxs\Crawler;
 
-/**
- * Class Crawler
- */
 class Crawler extends Objectt implements CrawlerInterface
 {
-    /**
-     * @var int
-     */
-    protected $tasksIndex = 0;
+    protected ?int $tasksIndex = 0;
+    /** @var array|Task[] $tasks */
+    protected ?array $tasks = [];
+    /** @var array|Task[] $tasksActive */
+    protected ?array $tasksActive = [];
+    /** @var array|Task[] $sockets2tasks */
+    protected ?array $sockets2tasks = [];
+    protected ?float $startTime = null;
 
     /**
-     * @var array|Task[]
-     */
-    protected $tasks = [];
-
-    /**
-     * @var array|Task[]
-     */
-    protected $tasksActive = [];
-
-    /**
-     * @var array|Task[]
-     */
-    protected $sockets2tasks = [];
-
-    /**
-     * @var float
-     */
-    protected $startTime;
-
-    /**
-     * Constructor.
-     *
      * @param array $options
      * - rps
      * - all Request options
@@ -43,9 +23,6 @@ class Crawler extends Objectt implements CrawlerInterface
         parent::__construct($options);
     }
 
-    /**
-     * Destructor.
-     */
     public function __destruct()
     {
         foreach ($this->tasks as $task) {
@@ -56,9 +33,6 @@ class Crawler extends Objectt implements CrawlerInterface
         unset($this->tasks);
     }
 
-    /**
-     * @inheritdoc
-     */
     public function request(Request $request, $callback)
     {
         $crawler = $this;
@@ -74,12 +48,8 @@ class Crawler extends Objectt implements CrawlerInterface
             function (Task $task) use ($crawler, $callback) {
                 $crawler->remove($task);
 
-                if ($callback && is_callable($callback)) {
-                    try {
-                        call_user_func_array($callback, [$task->getRequest(), $task->getResponse()]);
-                    } catch (\Exception $e) {
-                    } catch (\Throwable $e) {
-                    }
+                if (is_callable($callback)) {
+                    call_user_func_array($callback, [$task->getRequest(), $task->getResponse()]);
                 }
 
                 unset($task);
@@ -89,9 +59,6 @@ class Crawler extends Objectt implements CrawlerInterface
         return $this->tasks[$this->tasksIndex];
     }
 
-    /**
-     * @inheritdoc
-     */
     public function remove(Task $task)
     {
         $task->close();
@@ -110,9 +77,6 @@ class Crawler extends Objectt implements CrawlerInterface
         }
     }
 
-    /**
-     * @inheritdoc
-     */
     public function process()
     {
         while (true) {
@@ -133,8 +97,6 @@ class Crawler extends Objectt implements CrawlerInterface
     /**
      * Starts processing.
      * Moves tasks from queue to active queue, starts tasks.
-     *
-     * @return bool
      */
     protected function process_start()
     {
@@ -186,25 +148,15 @@ class Crawler extends Objectt implements CrawlerInterface
         $except = [];
 
         foreach ($this->tasksActive as $task) {
-            $socket = $task->getSocket();
-            if (!$socket) {
-                $task->error('check socket');
-                continue;
-            }
-
-            $except[] = $socket;
+            $except[] = $task->getSocket();
             if (!$task->isWriteDone()) {
-                $write[] = $socket;
+                $write[] = $task->getSocket();
             } elseif (!$task->isReadDone()) {
-                $read[] = $socket;
+                $read[] = $task->getSocket();
             }
         }
 
-        if (empty($read) && empty($write) && empty($except)) {
-            return;
-        }
-
-        $n = socket_select($read, $write, $except, 0, 100);
+        $n = socket_select($read, $write, $except, 0);
         if (!$n) {
             return;
         }
@@ -230,7 +182,7 @@ class Crawler extends Objectt implements CrawlerInterface
     }
 
     /**
-     * Checkc tasks if they are valid and  not retired.
+     * Checks tasks if they are valid and  not retired.
      */
     protected function process_check()
     {
@@ -239,21 +191,13 @@ class Crawler extends Objectt implements CrawlerInterface
             $task->check($time);
         }
     }
-
-    /**
-     * Returns task by socket.
-     *
-     * @param resource $socket
-     * @return Task
-     */
-    protected function socket2task($socket)
+    
+    protected function socket2task($socket): ?Task
     {
         if (!$socket instanceof \Socket) {
             return null;
         }
 
-        $socketId = spl_object_id($socket);
-
-        return $this->sockets2tasks[$socketId] ?? null;
+        return $this->sockets2tasks[spl_object_id($socket)] ?? null;
     }
 }
